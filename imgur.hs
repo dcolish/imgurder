@@ -1,14 +1,11 @@
 import Control.Monad.Trans
 import qualified Data.ByteString.Lazy as B
-import Data.Either
 import Data.IORef
 import Data.Maybe
 import Data.Tree.Class
 import Network.Curl
 import System (getArgs)
 import System.IO
-import Text.Regex.Posix
-import qualified Text.XML.HXT.DOM.FormatXmlTree as F
 import Text.XML.HXT.DOM.TypeDefs
 import qualified Text.XML.HXT.DOM.XmlNode as N
 import qualified Text.XML.HXT.Parser.XmlParsec as H
@@ -29,7 +26,7 @@ myCurlPost apikey myImage =
                , extraHeaders = []
                , showName = Nothing }]
 
-mypath str = X.getXPath str
+
 mytags = [ "/rsp/image_hash"
            ,"/rsp/delete_hash"
            ,"/rsp/original_image"
@@ -40,12 +37,12 @@ mytags = [ "/rsp/image_hash"
 
 
 xpathQN:: String -> XmlTree -> String
-xpathQN str tree =
-    fromJust $ N.getQualifiedName $ getNode $ head $ mypath str tree
+xpathQN str =
+    fromJust . N.getQualifiedName . getNode . head . X.getXPath str
 
 xpathTxt:: String -> XmlTree -> String
-xpathTxt str tree =
-    fromJust $ N.getText.head.getChildren.head $ mypath str tree
+xpathTxt str =
+    fromJust . N.getText.head.getChildren.head . X.getXPath str
 
 keyVal :: XmlTree -> String -> String
 keyVal res str = (xpathQN str res) ++ " = " ++
