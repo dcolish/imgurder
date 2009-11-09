@@ -5,8 +5,8 @@
 --  All rights reserved
 --
 --  Usage: runghc imgur.hs <filepath>
---  Requires Network.Curl and HXT
---  Both can be installed using `cabal install curl hxt`
+--  Requires Network.Curl, HsLua and HXT
+--  Both can be installed using `cabal install curl hxt hslua`
 --  Be sure to add an api key before using
 --
 {-
@@ -33,10 +33,9 @@
      SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 -}
 
-
-import Control.Monad.Trans
 import qualified Data.ByteString.Lazy as B
 import Data.IORef
+import Data.List
 import Data.Maybe
 import Data.Tree.Class
 import Network.Curl
@@ -74,15 +73,18 @@ pathTags = [ "/rsp/image_hash"
 xpathQN:: String -> XmlTree -> String
 xpathQN str = fromJust . N.getQualifiedName . getNode . head . X.getXPath str
 
+
 xpathTxt:: String -> XmlTree -> String
 xpathTxt str = fromJust . N.getText . head . getChildren . head . X.getXPath str
 
+
 keyVal :: XmlTree -> String -> String
-keyVal res str = (xpathQN str res) ++ " = " ++
-                    (xpathTxt str res)
+keyVal res str = unwords [(xpathQN str res), " = ", (xpathTxt str res)]
+
 
 formattedResult :: XmlTree -> [String]
 formattedResult res = map (keyVal res) pathTags
+
 
 loadConf :: IO String
 loadConf = do
@@ -96,6 +98,7 @@ loadConf = do
     Lua.close l
     return key
 
+
 main ::  IO ()
 main = withCurlDo $ do
     [file] <- getArgs
@@ -106,8 +109,8 @@ main = withCurlDo $ do
             [CurlWriteFunction (gatherOutput ref), CurlVerbose False]
             $ myCurlPost key file
     response <- fmap reverse $ readIORef ref
-    putStrLn $ "== Imgur Upload Complete ==\n"
-    putStrLn $ unlines $ formattedResult $ result response
+    putStrLn "== Imgur Upload Complete ==\n"
+    putStrLn . unlines . formattedResult . result $ response
     where
         result = head . H.xread . concatMap (unwords.tail.lines)
 
