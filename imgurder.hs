@@ -40,15 +40,13 @@ import Data.IORef
 import Data.Maybe
 import Data.Tree.Class
 import Network.Curl
+import qualified Scripting.Lua as  Lua
 import System (getArgs)
 import System.IO
 import Text.XML.HXT.DOM.TypeDefs
 import qualified Text.XML.HXT.DOM.XmlNode as N
 import qualified Text.XML.HXT.Parser.XmlParsec as H
 import qualified Text.XML.HXT.XPath.XPathEval as X
-
-apikey :: String
-apikey = "793579906fc2a799847e12db2b01cdcd"
 
 myCurlPost :: String -> String -> [HttpPost]
 myCurlPost apikey myImage =
@@ -77,25 +75,39 @@ xpathQN:: String -> XmlTree -> String
 xpathQN str = fromJust . N.getQualifiedName . getNode . head . X.getXPath str
 
 xpathTxt:: String -> XmlTree -> String
-xpathTxt str = fromJust . N.getText.head.getChildren.head . X.getXPath str
+xpathTxt str = fromJust . N.getText . head . getChildren . head . X.getXPath str
 
 keyVal :: XmlTree -> String -> String
 keyVal res str = (xpathQN str res) ++ " = " ++
                     (xpathTxt str res)
 
-fullResponse :: XmlTree -> [String]
-fullResponse res = map (keyVal res) pathTags
+formattedResult :: XmlTree -> [String]
+formattedResult res = map (keyVal res) pathTags
+
+loadConf :: IO String
+loadConf = do
+    l <- Lua.newstate
+    Lua.openlibs l
+    Lua.loadfile l "/home/dcolish/.imgurder.lua"
+    Lua.pcall l 0 0 0
+    Lua.getglobal l "key"
+    q <- Lua.gettop l
+    key <- Lua.tostring l q
+    Lua.close l
+    return key
 
 main ::  IO ()
 main = withCurlDo $ do
     [file] <- getArgs
+    key <- loadConf
     request <- initialize
     ref <- newIORef []
     run <- curlMultiPost "http://imgur.com/api/upload.xml"
             [CurlWriteFunction (gatherOutput ref), CurlVerbose False]
-            $ myCurlPost apikey file
+            $ myCurlPost key file
     response <- fmap reverse $ readIORef ref
-    let result = head $ H.xread $ concatMap (unwords.tail.lines) response
     putStrLn $ "== Imgur Upload Complete ==\n"
-    putStrLn $ unlines $ fullResponse result
+    putStrLn $ unlines $ formattedResult $ result response
+    where
+        result = head . H.xread . concatMap (unwords.tail.lines)
 
