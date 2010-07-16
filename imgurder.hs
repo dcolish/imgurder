@@ -5,9 +5,7 @@
 --  All rights reserved
 --
 --  Usage: runghc imgur.hs <filepath>
---  Requires Network.Curl, HsLua and HXT
---  Both can be installed using `cabal install curl hxt hslua`
---  Be sure to add an api key before using it and put it in ~/imgurder.lua
+--  Be sure to add an api key before using it and put it in ~/imgurder
 --  A sample configuration file would be:
 --  `echo '<your api key>' > ~/.imgurder`
 --
