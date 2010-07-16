@@ -3,7 +3,7 @@ Version:             1.0
 License:             BSD3
 License-file:        LICENSE
 Author:              Dan Colish
-Maintainer:          dan@unencrypted.org
+Maintainer:          dcolish@gmail.com
 Build-Type:          Simple
 Cabal-Version:       >=1.2
 Synopsis:            Uploader for Imgur
