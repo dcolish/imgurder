@@ -1,7 +1,7 @@
 --
 --  Imgur Uploader
---  Dan Colish <dan@unencrypted.org>
---  Copyright (c) 2009
+--  Dan Colish <dcolish@gmail.com>
+--  Copyright (c) 2010
 --  All rights reserved
 --
 --  Usage: runghc imgur.hs <filepath>
@@ -9,7 +9,7 @@
 --  Both can be installed using `cabal install curl hxt hslua`
 --  Be sure to add an api key before using it and put it in ~/imgurder.lua
 --  A sample configuration file would be:
---  `echo ' key = "<your api key>"' > ~/.imgurder.lua`
+--  `echo '<your api key>' > ~/.imgurder`
 --
 
 import Data.IORef
@@ -17,7 +17,6 @@ import Data.List
 import Data.Maybe
 import Data.Tree.Class
 import Network.Curl
-import qualified Scripting.Lua as  Lua
 import System (getArgs)
 import System.Directory
 import System.IO
@@ -69,13 +68,7 @@ formattedResult res = map (keyVal res) pathTags
 loadConf :: IO String
 loadConf = do
     h <- getHomeDirectory
-    l <- Lua.newstate
-    Lua.openlibs l
-    Lua.callproc l "dofile" (h ++ "/.imgurder.lua")
-    Lua.getglobal l "key"
-    q <- Lua.gettop l
-    key <- Lua.tostring l q
-    Lua.close l
+    key <- readFile (h ++ "/.imgurder")
     return key
 
 
