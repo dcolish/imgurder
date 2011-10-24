@@ -70,25 +70,15 @@ loadConf = do
     return key
 
 
-curlMultiPost' :: URLString -> [CurlOption] -> [HttpPost] -> IO Int
-curlMultiPost' s os ps = do
-  h <- initialize
-  setopt h (CurlVerbose True)
-  setopt h (CurlURL s)
-  setopt h (CurlHttpPost ps)
-  mapM_ (setopt h) os
-  perform h
-  getResponseCode h
-
-
 main ::  IO ()
 main = withCurlDo $ do
     [file] <- getArgs
-    initialize
+    h <- initialize
     ref <- newIORef []
-    resp <- curlMultiPost' "http://imgur.com/api/upload.xml"
+    curlMultiPost "http://imgur.com/api/upload.xml"
             [CurlWriteFunction (gatherOutput ref), CurlVerbose False, CurlFailOnError True]
             $ myCurlPost key file
+    resp <- getResponseCode h
     case resp of
       200 -> do
         response <- fmap reverse $ readIORef ref
