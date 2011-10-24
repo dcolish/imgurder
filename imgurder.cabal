@@ -1,5 +1,5 @@
 Name:                imgurder
-Version:             1.0
+Version:             1.1
 License:             BSD3
 License-file:        LICENSE
 Author:              Dan Colish
@@ -8,8 +8,7 @@ Build-Type:          Simple
 Cabal-Version:       >=1.2
 Synopsis:            Uploader for Imgur
 Category:            Web
-Description:         A simple uploader for the Imgur api. You should register
-                     for an api key
+Description:         A simple uploader for the Imgur api.
 
 Executable imgurder
   Main-is:           imgurder.hs

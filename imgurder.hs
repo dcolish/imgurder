@@ -1,13 +1,10 @@
 --
 --  Imgur Uploader
 --  Dan Colish <dcolish@gmail.com>
---  Copyright (c) 2010
+--  Copyright (c) 2010, 2011
 --  All rights reserved
 --
---  Usage: runghc imgur.hs <filepath>
---  Be sure to add an api key before using it and put it in ~/imgurder
---  A sample configuration file would be:
---  `echo '<your api key>' > ~/.imgurder`
+--  Usage: imgurder <filepath>
 --
 
 import Data.IORef
@@ -22,6 +19,9 @@ import Text.XML.HXT.DOM.TypeDefs
 import qualified Text.XML.HXT.DOM.XmlNode as N
 import qualified Text.XML.HXT.Parser.XmlParsec as H
 import qualified Text.XML.HXT.XPath.XPathEval as X
+
+
+key = "a05aaffbb595c38c2cd2d54d4c57eb3f"
 
 
 myCurlPost :: String -> String -> [HttpPost]
@@ -70,18 +70,31 @@ loadConf = do
     return key
 
 
+curlMultiPost' :: URLString -> [CurlOption] -> [HttpPost] -> IO Int
+curlMultiPost' s os ps = do
+  h <- initialize
+  setopt h (CurlVerbose True)
+  setopt h (CurlURL s)
+  setopt h (CurlHttpPost ps)
+  mapM_ (setopt h) os
+  perform h
+  getResponseCode h
+
+
 main ::  IO ()
 main = withCurlDo $ do
     [file] <- getArgs
-    key <- loadConf
     initialize
     ref <- newIORef []
-    curlMultiPost "http://imgur.com/api/upload.xml"
-            [CurlWriteFunction (gatherOutput ref), CurlVerbose False]
+    resp <- curlMultiPost' "http://imgur.com/api/upload.xml"
+            [CurlWriteFunction (gatherOutput ref), CurlVerbose False, CurlFailOnError True]
             $ myCurlPost key file
-    response <- fmap reverse $ readIORef ref
-    putStrLn "== Imgur Upload Complete ==\n"
-    putStrLn . unlines . formattedResult . result $ response
+    case resp of
+      200 -> do
+        response <- fmap reverse $ readIORef ref
+        putStrLn "== Imgur Upload Complete ==\n"
+        putStrLn . unlines . formattedResult . result $ response
+      _ -> putStrLn $  "Something went wrong, response: " ++ (show resp)
     where
         result = head . H.xread . concatMap (unwords.tail.lines)
 
