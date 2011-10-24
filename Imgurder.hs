@@ -30,7 +30,14 @@ data ImgurUpload = ImgurUpload {
     smallThumbnail :: String,
     imgurPage :: String,
     deletePage :: String
-    } deriving (Show)
+    }
+
+instance Show ImgurUpload where
+    show (ImgurUpload ih dh oi lt st ip dp) = unlines ["Image link: " ++ oi,
+        "Large thumbnail: " ++ lt,
+        "Small thumbnail: " ++ st,
+        "Imgur page link: " ++ ip,
+        "Delete page link: " ++ dp]
 
 
 myCurlPost :: String -> String -> [HttpPost]
