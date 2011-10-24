@@ -10,8 +10,17 @@ cabal install
 
 Cabal will take care of any dependencies
 
-You wil need to add an api key to a file like so::
+To use::
 
-`echo '<your api key>' > ~/.imgurder`
+   $ imgurder <image file path>
 
 .. _`Imgur`: http://www.imgur.com
+
+
+Changelog
+----------
+
+1.1 - Add error handling for POST response codes. Thanks to Aleksander Balicki
+      for reporting.
+
+1.0 - Initial release

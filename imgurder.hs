@@ -1,13 +1,10 @@
 --
 --  Imgur Uploader
 --  Dan Colish <dcolish@gmail.com>
---  Copyright (c) 2010
+--  Copyright (c) 2010, 2011
 --  All rights reserved
 --
---  Usage: runghc imgur.hs <filepath>
---  Be sure to add an api key before using it and put it in ~/imgurder
---  A sample configuration file would be:
---  `echo '<your api key>' > ~/.imgurder`
+--  Usage: imgurder <filepath>
 --
 module Imgurder (ImgurUpload(ImgurUpload), upload) where
 
@@ -22,7 +19,7 @@ import qualified Text.XML.HXT.XPath.XPathEval as X
 
 
 key :: String
-key = "27b25626f64a6a77fea07ec3ad2d5250"
+key = "a05aaffbb595c38c2cd2d54d4c57eb3f"
 
 
 data ImgurUpload = ImgurUpload {
@@ -87,12 +84,27 @@ imgurify xs = do
     return $ ImgurUpload imageHash' deleteHash' originalImage' largeThumbnail' smallThumbnail' imgurPage' deletePage'
 
 
+curlMultiPost' :: URLString -> [CurlOption] -> [HttpPost] -> IO Int
+curlMultiPost' s os ps = do
+  h <- initialize
+  _ <- setopt h (CurlVerbose True)
+  _ <- setopt h (CurlURL s)
+  _ <- setopt h (CurlHttpPost ps)
+  mapM_ (setopt h) os
+  _ <- perform h
+  getResponseCode h
+
 upload :: FilePath -> IO (Maybe ImgurUpload)
 upload file = withCurlDo $ do
     _ <- initialize
     ref <- newIORef []
-    curlMultiPost "http://imgur.com/api/upload.xml"
-            [CurlWriteFunction (gatherOutput ref), CurlVerbose False]
+    resp <- curlMultiPost' "http://imgur.com/api/upload.xml"
+            [CurlWriteFunction (gatherOutput ref), CurlVerbose False, CurlFailOnError True]
             $ myCurlPost key file
-    response <- fmap reverse $ readIORef ref
-    return . imgurify . formattedResult .head . H.xread . concatMap (unwords.tail.lines) $ response
+    case resp of
+      200 -> do
+        response <- fmap reverse $ readIORef ref
+        return . imgurify . formattedResult . result $ response
+      _ -> return Nothing
+    where
+        result = head . H.xread . concatMap (unwords.tail.lines)
