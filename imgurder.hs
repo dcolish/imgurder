@@ -9,19 +9,31 @@
 --  A sample configuration file would be:
 --  `echo '<your api key>' > ~/.imgurder`
 --
+module Imgurder (ImgurUpload(ImgurUpload), upload) where
 
 import Data.IORef
-import Data.List
 import Data.Maybe
 import Data.Tree.Class
 import Network.Curl
-import System (getArgs)
-import System.Directory
-import System.IO
 import Text.XML.HXT.DOM.TypeDefs
 import qualified Text.XML.HXT.DOM.XmlNode as N
 import qualified Text.XML.HXT.Parser.XmlParsec as H
 import qualified Text.XML.HXT.XPath.XPathEval as X
+
+
+key :: String
+key = "27b25626f64a6a77fea07ec3ad2d5250"
+
+
+data ImgurUpload = ImgurUpload {
+    imageHash :: String,
+    deleteHash :: String,
+    originalImage :: String,
+    largeThumbnail :: String,
+    smallThumbnail :: String,
+    imgurPage :: String,
+    deletePage :: String
+    } deriving (Show)
 
 
 myCurlPost :: String -> String -> [HttpPost]
@@ -55,33 +67,32 @@ xpathTxt:: String -> XmlTree -> String
 xpathTxt str = fromJust . N.getText . head . getChildren . head . X.getXPath str
 
 
-keyVal :: XmlTree -> String -> String
-keyVal res str = unwords [(xpathQN str res), " = ", (xpathTxt str res)]
+keyVal :: XmlTree -> String -> (String, String)
+keyVal res str = (xpathQN str res,xpathTxt str res)
 
 
-formattedResult :: XmlTree -> [String]
+formattedResult :: XmlTree -> [(String, String)]
 formattedResult res = map (keyVal res) pathTags
 
 
-loadConf :: IO String
-loadConf = do
-    h <- getHomeDirectory
-    key <- readFile (h ++ "/.imgurder")
-    return key
+imgurify :: [(String, String)] -> Maybe ImgurUpload
+imgurify xs = do
+    imageHash' <- lookup "image_hash" xs
+    deleteHash' <- lookup "delete_hash" xs
+    originalImage' <- lookup "original_image" xs
+    largeThumbnail' <- lookup "large_thumbnail" xs
+    smallThumbnail' <- lookup "small_thumbnail" xs
+    imgurPage' <- lookup "imgur_page" xs
+    deletePage' <- lookup "delete_page" xs
+    return $ ImgurUpload imageHash' deleteHash' originalImage' largeThumbnail' smallThumbnail' imgurPage' deletePage'
 
 
-main ::  IO ()
-main = withCurlDo $ do
-    [file] <- getArgs
-    key <- loadConf
-    initialize
+upload :: FilePath -> IO (Maybe ImgurUpload)
+upload file = withCurlDo $ do
+    _ <- initialize
     ref <- newIORef []
     curlMultiPost "http://imgur.com/api/upload.xml"
             [CurlWriteFunction (gatherOutput ref), CurlVerbose False]
             $ myCurlPost key file
     response <- fmap reverse $ readIORef ref
-    putStrLn "== Imgur Upload Complete ==\n"
-    putStrLn . unlines . formattedResult . result $ response
-    where
-        result = head . H.xread . concatMap (unwords.tail.lines)
-
+    return . imgurify . formattedResult .head . H.xread . concatMap (unwords.tail.lines) $ response
