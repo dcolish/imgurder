@@ -33,7 +33,7 @@ data ImgurUpload = ImgurUpload {
     }
 
 instance Show ImgurUpload where
-    show (ImgurUpload ih dh oi lt st ip dp) = unlines ["Image link: " ++ oi,
+    show (ImgurUpload _ _ oi lt st ip dp) = unlines ["Image link: " ++ oi,
         "Large thumbnail: " ++ lt,
         "Small thumbnail: " ++ st,
         "Imgur page link: " ++ ip,
@@ -91,23 +91,14 @@ imgurify xs = do
     return $ ImgurUpload imageHash' deleteHash' originalImage' largeThumbnail' smallThumbnail' imgurPage' deletePage'
 
 
-curlMultiPost' :: URLString -> [CurlOption] -> [HttpPost] -> IO Int
-curlMultiPost' s os ps = do
-  h <- initialize
-  _ <- setopt h (CurlVerbose True)
-  _ <- setopt h (CurlURL s)
-  _ <- setopt h (CurlHttpPost ps)
-  mapM_ (setopt h) os
-  _ <- perform h
-  getResponseCode h
-
 upload :: FilePath -> IO (Maybe ImgurUpload)
 upload file = withCurlDo $ do
-    _ <- initialize
+    h <- initialize
     ref <- newIORef []
-    resp <- curlMultiPost' "http://imgur.com/api/upload.xml"
+    curlMultiPost "http://imgur.com/api/upload.xml"
             [CurlWriteFunction (gatherOutput ref), CurlVerbose False, CurlFailOnError True]
             $ myCurlPost key file
+    resp <- getResponseCode h
     case resp of
       200 -> do
         response <- fmap reverse $ readIORef ref
