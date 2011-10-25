@@ -4,9 +4,12 @@
 --  Copyright (c) 2010, 2011
 --  All rights reserved
 --
---  Usage: imgurder <filepath>
 --
-module Imgurder (ImgurUpload(ImgurUpload), upload) where
+
+module Network.Imgurder (
+  ImgurUpload(ImgurUpload),
+  upload
+  ) where
 
 import Data.IORef
 import Data.Maybe
@@ -16,10 +19,6 @@ import Text.XML.HXT.DOM.TypeDefs
 import qualified Text.XML.HXT.DOM.XmlNode as N
 import qualified Text.XML.HXT.Parser.XmlParsec as H
 import qualified Text.XML.HXT.XPath.XPathEval as X
-
-
-key :: String
-key = "a05aaffbb595c38c2cd2d54d4c57eb3f"
 
 
 data ImgurUpload = ImgurUpload {
@@ -91,14 +90,23 @@ imgurify xs = do
     return $ ImgurUpload imageHash' deleteHash' originalImage' largeThumbnail' smallThumbnail' imgurPage' deletePage'
 
 
-upload :: FilePath -> IO (Maybe ImgurUpload)
-upload file = withCurlDo $ do
-    h <- initialize
+curlMultiPost' :: URLString -> [CurlOption] -> [HttpPost] -> IO Int
+curlMultiPost' s os ps = do
+  h <- initialize
+  setopt h (CurlVerbose True)
+  setopt h (CurlURL s)
+  setopt h (CurlHttpPost ps)
+  mapM_ (setopt h) os
+  perform h
+  getResponseCode h
+
+
+upload :: String -> FilePath -> IO (Maybe ImgurUpload)
+upload key file = withCurlDo $ do
     ref <- newIORef []
-    curlMultiPost "http://imgur.com/api/upload.xml"
-            [CurlWriteFunction (gatherOutput ref), CurlVerbose False, CurlFailOnError True]
+    resp <- curlMultiPost' "http://api.imgur.com/1/upload.xml"
+            [CurlWriteFunction (gatherOutput ref), CurlVerbose False]
             $ myCurlPost key file
-    resp <- getResponseCode h
     case resp of
       200 -> do
         response <- fmap reverse $ readIORef ref
