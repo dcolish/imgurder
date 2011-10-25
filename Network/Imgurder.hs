@@ -7,7 +7,7 @@
 --
 
 module Network.Imgurder (
-  ImgurUpload(ImgurUpload),
+  ImgurUpload(ImgurUpload, ImgurFailure),
   upload
   ) where
 
@@ -30,6 +30,7 @@ data ImgurUpload = ImgurUpload {
     imgurPage :: String,
     deletePage :: String
     }
+             | ImgurFailure Int
 
 instance Show ImgurUpload where
     show (ImgurUpload _ _ oi lt st ip dp) = unlines ["Image link: " ++ oi,
@@ -37,6 +38,7 @@ instance Show ImgurUpload where
         "Small thumbnail: " ++ st,
         "Imgur page link: " ++ ip,
         "Delete page link: " ++ dp]
+    show (ImgurFailure a) = "Something has gone wrong, try again later!\n Response: " ++ show a
 
 
 myCurlPost :: String -> String -> [HttpPost]
@@ -52,8 +54,8 @@ myCurlPost apikey myImage =
                , showName = Nothing }]
 
 
-pathTags :: [String]
-pathTags = [ "/rsp/image_hash"
+tagPaths :: [String]
+tagPaths = [ "/rsp/image_hash"
            ,"/rsp/delete_hash"
            ,"/rsp/original_image"
            ,"/rsp/large_thumbnail"
@@ -71,23 +73,23 @@ xpathTxt str = fromJust . N.getText . head . getChildren . head . X.getXPath str
 
 
 keyVal :: XmlTree -> String -> (String, String)
-keyVal res str = (xpathQN str res,xpathTxt str res)
+keyVal res str = (xpathQN str res, xpathTxt str res)
 
 
 formattedResult :: XmlTree -> [(String, String)]
-formattedResult res = map (keyVal res) pathTags
+formattedResult res = map (keyVal res) tagPaths
 
 
 imgurify :: [(String, String)] -> Maybe ImgurUpload
 imgurify xs = do
-    imageHash' <- lookup "image_hash" xs
-    deleteHash' <- lookup "delete_hash" xs
-    originalImage' <- lookup "original_image" xs
-    largeThumbnail' <- lookup "large_thumbnail" xs
-    smallThumbnail' <- lookup "small_thumbnail" xs
-    imgurPage' <- lookup "imgur_page" xs
-    deletePage' <- lookup "delete_page" xs
-    return $ ImgurUpload imageHash' deleteHash' originalImage' largeThumbnail' smallThumbnail' imgurPage' deletePage'
+  imageHash' <- lookup "image_hash" xs
+  deleteHash' <- lookup "delete_hash" xs
+  originalImage' <- lookup "original_image" xs
+  largeThumbnail' <- lookup "large_thumbnail" xs
+  smallThumbnail' <- lookup "small_thumbnail" xs
+  imgurPage' <- lookup "imgur_page" xs
+  deletePage' <- lookup "delete_page" xs
+  return $ ImgurUpload imageHash' deleteHash' originalImage' largeThumbnail' smallThumbnail' imgurPage' deletePage'
 
 
 curlMultiPost' :: URLString -> [CurlOption] -> [HttpPost] -> IO Int
@@ -101,7 +103,7 @@ curlMultiPost' s os ps = do
   getResponseCode h
 
 
-upload :: String -> FilePath -> IO (Maybe ImgurUpload)
+upload :: String -> FilePath -> IO (Either ImgurUpload ImgurUpload)
 upload key file = withCurlDo $ do
     ref <- newIORef []
     resp <- curlMultiPost' "http://api.imgur.com/1/upload.xml"
@@ -110,7 +112,10 @@ upload key file = withCurlDo $ do
     case resp of
       200 -> do
         response <- fmap reverse $ readIORef ref
-        return . imgurify . formattedResult . result $ response
-      _ -> return Nothing
+        let imgurUpload = imgurify . formattedResult . result $ response
+        case imgurUpload of 
+          Just a -> return . Right $ a
+          Nothing -> return . Left $ ImgurFailure (-1)
+      _ -> return . Left $ ImgurFailure resp
     where
         result = head . H.xread . concatMap (unwords.tail.lines)
