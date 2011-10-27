@@ -10,6 +10,4 @@ main :: IO ()
 main = do
     [file] <- getArgs
     imgurUpload <- upload key file
-    case imgurUpload of
-      Right a -> print a
-      Left a -> print a -- Uknown Error happened
+    print imgurUpload

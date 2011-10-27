@@ -105,7 +105,7 @@ curlMultiPost' s os ps = do
   getResponseCode h
 
 
-upload :: String -> FilePath -> IO (Either ImgurUpload ImgurUpload)
+upload :: String -> FilePath -> IO (ImgurUpload)
 upload key file = withCurlDo $ do
     ref <- newIORef []
     resp <- curlMultiPost' "http://api.imgur.com/1/upload.xml"
@@ -116,8 +116,8 @@ upload key file = withCurlDo $ do
         response <- fmap reverse $ readIORef ref
         let imgurUpload = imgurify . formattedResult . result $ response
         case imgurUpload of
-          Just a -> return . Right $ a
-          Nothing -> return . Left $ ImgurFailure (-1)
-      _ -> return . Left $ ImgurFailure resp
+          Just a -> return $ a
+          Nothing -> return $ ImgurFailure (-1)
+      _ -> return $ ImgurFailure resp
     where
         result = head . H.xread . concatMap (unwords.tail.lines)
